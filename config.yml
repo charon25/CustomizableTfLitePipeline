@@ -1,0 +1,66 @@
+---
+
+directories:
+  temp_dir: 'temp'
+  save_dir: 'recordings'
+
+udp:
+  ip_address: "0.0.0.0"
+  send_port: 7001
+  recv_port: 7000
+  id_length: 15
+  timeout: 15
+
+audio:
+  rate: 16000
+  sample_width: 2
+  channels: 1
+  file_duration: 5
+
+processes:
+  - name: anomalies
+    position: input
+    type: anomaly
+    model: 'models/cae16k.tflite'
+    config:
+      threshold: 0.04
+      input_shape: [5, 16000, 1]
+      preprocess: null
+    log: default
+    actions:
+      always: 
+        - action: null
+          line: default
+      on_result:
+        - false>=100%:
+            action: output
+        - false>=100%:
+            action: null
+            line: default
+        - true>0:
+            action: next
+            input: same
+            target: yamnet
+
+  - name: yamnet
+    type: classification
+    model: 'models/yamnet.tflite'
+    config:
+      labels: 'models/labels/yamnet.csv'
+      minimum_confidence: 0.6
+      count: 3
+      input_shape: [80000]
+      preprocess: null
+    log: default
+    actions:
+      on_not_result:
+        - silence>=100%:
+            action: null
+            line: default
+      always: 
+        - action: output
+        - action: save
+          filename: '%d;%r;%a.wav'
+          directory: default
+        - action: null
+          line: default
