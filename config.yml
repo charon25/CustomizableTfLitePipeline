@@ -12,10 +12,10 @@ udp:
   timeout: 15
 
 audio:
-  rate: 16000
-  sample_width: 2
+  rate: 16000 # Hz
+  sample_width: 2 # bytes
   channels: 1
-  file_duration: 5
+  file_duration: 5 # seconds
 
 processes:
   - name: anomalies
@@ -23,20 +23,14 @@ processes:
     type: anomaly
     model: 'models/cae16k.tflite'
     config:
-      threshold: 0.04
+      threshold: 0.04 #53
       input_shape: [5, 16000, 1]
       preprocess: null
     log: default
     actions:
-      always: 
-        - action: null
-          line: default
+      always:
+        - action: output
       on_result:
-        - false>=100%:
-            action: output
-        - false>=100%:
-            action: null
-            line: default
         - true>0:
             action: next
             input: same
@@ -49,18 +43,15 @@ processes:
       labels: 'models/labels/yamnet.csv'
       minimum_confidence: 0.6
       count: 3
-      input_shape: [80000]
+      input_shape: [80000] # = 5 * 16000
       preprocess: null
-    log: default
+    log: 'Process %n -> Results : %R' # null
     actions:
       on_not_result:
         - silence>=100%:
             action: null
-            line: default
       always: 
         - action: output
         - action: save
           filename: '%d;%r;%a.wav'
           directory: default
-        - action: null
-          line: default

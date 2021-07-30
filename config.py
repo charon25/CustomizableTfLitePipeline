@@ -2,6 +2,16 @@ import yaml
 
 
 class DotDict(dict):
+    """
+    Dictionary wrapper which allows to call keys with a dot (.).
+    
+    Exemple : 
+    >>> d = {'key1': 1, 'key2': 2}
+    >>> d = DotDict(d)
+    >>> d.key1
+        1
+    """
+
     def __getattr__(*args):
         val = dict.get(*args)
         return DotDict(val) if type(val) is dict else val
@@ -20,34 +30,11 @@ class Config:
         return self._config.__getattr__(attr)
     
     def get_processes(self):
+        """Return all the processes as DotDicts."""
+
         for process in self.processes:
             yield DotDict(process)
 
 if __name__ == '__main__':
     config = Config('config.yml')
     print(config._config)
-    # proc = next(config.get_processes())
-    # print(proc.actions.on_result)
-    # proc = next(config.get_processes())
-    # print(proc.actions.always)
-    # print(type(proc.actions))
-    # proc.actions.on_result.items()
-    # for k, v in proc.actions.list_dicts():
-    #     # k, v = list(actions.items())[0]
-    #     # k, v = k
-    #     print(k, v)
-    # on_result = next(config.get_processes()).actions.on_result
-    # for result, action in config.get_on_not_result_actions("anomalies"):
-    #     print(type(action))
-    # processes = {
-    #     'input': None,
-    #     'middle': [],
-    #     'output': None
-    # }
-    # for process in config.get_processes():
-    #     if process.position in processes:
-    #         if type(processes[process.position]) == list:
-    #             processes[process.position].append(process)
-    #         else:
-    #             processes[process.position] = process
-    # print(processes)

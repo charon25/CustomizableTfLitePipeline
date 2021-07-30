@@ -5,7 +5,16 @@ import re
 
 
 class ActionTrigger:
+    """
+    Class representing the trigger for an action.
+    
+    Its `is_valid` method should be called to check if the action should be executed.
+    This method accept one argument : `result`, which is a list of strings.
+    """
+
+    # Regex to match something like 'false<=34.2%'
     PERCENTAGE_REGEX = r'^([\w ,:!§\/.?-]+)([<>=]=?)([\d.]+)%$'
+    # Regex to match something like 'true>3'
     ABSOLUTE_REGEX = r'^([\w ,:!§\/.?-]+)([<>=]=?)(\d+)$'
 
     def __init__(self, condition):
@@ -57,6 +66,8 @@ class ActionTrigger:
 
 
 class ActionTriggerCollection:
+    """Represent a collection of Action. The `is_valid` method will return True if all the action are valid."""
+
     def __init__(self, conditions):
         conditions = str(conditions).lower()
 

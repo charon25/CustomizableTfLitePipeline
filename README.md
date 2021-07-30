@@ -202,7 +202,7 @@ always:
     - `input` (obligatoire) : indique quelles données doivent être envoyées au process suivant. Les valeurs possibles sont :
         - `'same'` : les données envoyées sont les mêmes que celles reçues ;
         - `'result'` : les données reçues sont le résultat du process en cours.
-- `'output'` : renvoie les données. Cette action est ignorée si une action `'next'` est déclenchée. Pas d'arguments supplémentaires.
+- `'output'` : ajoute les résultats de ce process aux données renvoyées. Pas d'arguments supplémentaires.
 
 #### Exemple d'actions
 ```yaml

@@ -18,24 +18,43 @@ from action_trigger import ActionTriggerCollection
 
 
 class Preprocess:
+    """
+    Class which contains all the pre-processing algorithms.
+
+    To add a new one, create a new function and add a new line in __init__.
+    """
+
     def __init__(self, preprocess):
         if preprocess is None:
-            self.process = self.__none
+            self.process = self._none
         elif preprocess == 'mfcc':
-            self.process = self.__mfcc
+            self.process = self._mfcc
         else:
             raise ValueError("Unknown preprocess : '{}'".format(preprocess))
     
-    def __none(self, audio):
+    def _none(self, audio):
         return audio
     
-    def __mfcc(self, audio):
+    def _mfcc(self, audio):
+        """Return MFCC transform of the sound."""
+
         data = np.transpose(librosa.feature.mfcc(y=audio.reshape((-1)), sr=16000, n_mfcc=32, hop_length=1001))
         data = np.expand_dims(data, axis=0)
         data = np.expand_dims(data, axis=-1)
         return data
 
+
 class Process:
+    """Class to manage processes of the pipe.
+    To create a new one, make a new class inheriting this one and overload the `process` method.
+    This method sould return `self.results` which is of the following form :
+
+    {'classes': [list of returned names], 'values': [corresponding values], 'params': {any necessary params}}
+
+    The `process` method should call `self._clear_results()` before doing anything to `self.results`
+    then `self._normalize_results()` before returning.
+    """
+
     def __init__(self, process):
         self.name = process.name
         self.results = None
@@ -56,6 +75,8 @@ class Process:
         self._create_always_actions(process)
 
     def _get_model_output(self, data, return_input_data=False):
+        """Return output of the model, with or without the input data."""
+
         data = data.reshape(self.shape)
         data = self.preprocessing.process(data)
 
@@ -68,6 +89,8 @@ class Process:
             return self.interpreter.get_tensor(self.output_layer)
 
     def _create_on_result_actions(self, process):
+        """Create all the "on_result" actions of the process as ActionTriggerCollections."""
+
         self.on_result_actions = list()
         
         if process.actions is None or process.actions.on_result is None:
@@ -79,6 +102,8 @@ class Process:
             self.on_result_actions.append((action_triggers, DotDict(action)))
 
     def _create_on_not_result_actions(self, process):
+        """Create all the "on_not_result" actions of the process as ActionTriggerCollections."""
+
         self.on_not_result_actions = list()
 
         if process.actions is None or process.actions.on_not_result is None:
@@ -90,6 +115,8 @@ class Process:
             self.on_not_result_actions.append((action_triggers, DotDict(action)))
         
     def _create_always_actions(self, process):
+        """Create all the "always" actions of the process."""
+
         self.on_always_actions = list()
 
         if process.actions is None or process.actions.always is None:
@@ -100,20 +127,28 @@ class Process:
 
 
     def get_on_result_actions(self, result):
+        """Generator for all the "on_result" actions satisfying the given result."""
+
         for action_trigger, action in self.on_result_actions:
             if action_trigger.is_valid(result):
                 yield action
 
     def get_on_not_result_actions(self, result):
+        """Generator for all the "on_not_result" actions satisfying the given result."""
+
         for action_trigger, action in self.on_not_result_actions:
             if not action_trigger.is_valid(result):
                 yield action
     
     def get_always_actions(self):
+        """Yield all the always actions"""
+
         yield from self.on_always_actions
     
     
     def replace_string(self, string, client_id, shortened=False):
+        """Replace the CustomString with all the necessary fields. Add more if needed."""
+
         string = string.replace('%n', self.name.lower())
         string = string.replace('%r', str(self.results['classes']).lower()[:50])
         string = string.replace('%R', str(self.results['classes']).lower())
@@ -123,6 +158,8 @@ class Process:
         return string
 
     def _clear_results(self):
+        """Clear the `self.results` variable."""
+
         self.results = {
             'classes': [],
             'values': [],
@@ -130,6 +167,8 @@ class Process:
         }
 
     def _normalize_results(self):
+        """Check that `self.results` is of the right form, and convert to string and uncapitalize every class."""
+
         if not isinstance(self.results, dict) or 'classes' not in self.results or 'values' not in self.results:
             raise ValueError("Incorrect `self.results` format : {}".format(self.results))
 
@@ -138,6 +177,8 @@ class Process:
 
     @staticmethod
     def create_process(process):
+        """Create the right Process class based on the DotDict."""
+
         if process.type == 'anomaly':
             return AnomalyProcess(process)
         elif process.type == 'classification':
@@ -147,6 +188,16 @@ class Process:
 
 
 class AnomalyProcess(Process):
+    """
+    Process that returns True or False, depending of if the sound contains anomalies.
+    
+    `self.results['class']` contains 'true' or 'false'.
+
+    `self.results['values']` contains the difference between generated and real.
+
+    `self.results['params']` contains the threshold used.
+    """
+
     def __init__(self, process):
         super().__init__(process)
         self.threshold = process.config.threshold
@@ -164,6 +215,16 @@ class AnomalyProcess(Process):
 
 
 class ClassificationProcess(Process):
+    """
+    Process that classify the audio in different classes.
+    
+    `self.results['class']` contains the classes name.
+
+    `self.results['values']` contains the classes confidence.
+
+    `self.results['params']` contains the count and minimum confidence.
+    """
+
     def __init__(self, process):
         super().__init__(process)
         self.load_labels(process.config.labels)
@@ -174,6 +235,8 @@ class ClassificationProcess(Process):
 
 
     def load_labels(self, labels):
+        """Read the labels from the file. The file should have one label per line, in the form '<index>,<label>'."""
+
         if not os.path.isfile(labels):
             raise FileNotFoundError("Labels file '{}' not found.".format(labels))
         
