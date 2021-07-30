@@ -70,7 +70,7 @@ class Processing:
         if len(audio.shape) > 1:
             audio = np.mean(audio, axis=1)
 
-        return audio.astype(np.float32) / (2**(self.config.audio.sample_width - 1))
+        return audio.astype(np.float32) / (2**(8 * self.config.audio.sample_width - 1))
 
 
     def get_actions(self, process, result):
