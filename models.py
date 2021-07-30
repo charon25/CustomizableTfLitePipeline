@@ -60,7 +60,7 @@ class Processing:
             raise ValueError('No input process.')
 
 
-    def _load_audio(self, filename):
+    def _load_audio(self, filename: str):
         """Read audio wave file and return it as a np float32 array between 0 and 1."""
 
         with wave.open(filename, 'rb') as wr:
@@ -73,7 +73,7 @@ class Processing:
         return audio.astype(np.float32) / (2**(8 * self.config.audio.sample_width - 1))
 
 
-    def get_actions(self, process, result):
+    def get_actions(self, process: Process, result: dict):
         """Generator of all the actions needed to be taken according to the result."""
 
         yield from process.get_on_result_actions(result)
@@ -81,24 +81,26 @@ class Processing:
         yield from process.get_always_actions()
 
 
-    def get_next_process(self, action, data, result):
+    def get_next_process(self, current_process: Process, action, data, result: dict):
         """Return the next process in the pipeline and its input data."""
 
-        process = self.middle_processes.get(action.target, False)
-        if not process:
-            raise ValueError("No process with name '{}' to continue pipe.".format(action.target))
+        target_process = self.middle_processes.get(action.target, False)
+        if not target_process:
+            raise ValueError("Target process '{}' does not exist.".format(action.target))
 
         if action.input == 'same':
             data = np.copy(data)
         elif action.input == 'result':
             data = np.copy(result)
+        elif str(action.input).isnumeric():
+            data = np.copy(current_process.get_result_of_layer(action.input))
         else:
-            raise ValueError("`input` field of the 'next' action should be 'same' or 'result'.")
+            raise ValueError("`input` field of the 'next' action should be 'same', 'result' or an int, not {}".format(action.input))
         
-        return (process, data)
+        return (target_process, data)
 
 
-    def _get_filename(self, process, action):
+    def _get_filename(self, process: Process, action):
         """Get the filename for the 'save' action."""
 
         filename = action.filename
@@ -113,7 +115,7 @@ class Processing:
 
         return filename
     
-    def _get_directory(self, process, action):
+    def _get_directory(self, process: Process, action):
         """Get the directory for the 'save' action."""
 
         directory = action.directory
@@ -126,7 +128,7 @@ class Processing:
             os.makedirs(directory)
         return directory
 
-    def save_audio(self, process, action, source_filename):
+    def save_audio(self, process: Process, action, source_filename: str):
         """Save the audio in the right path."""
 
         filename = self._get_filename(process, action)
@@ -137,7 +139,7 @@ class Processing:
         return filepath
 
 
-    def log_results(self, process, line):
+    def log_results(self, process: Process, line: str):
         """Log results according to the 'line'."""
 
         if line == 'default':
@@ -149,31 +151,27 @@ class Processing:
         )
 
 
-    def process(self, filename):
+    def process(self, filename: str):
         """Process the filename in the pipeline."""
 
         audio = self._load_audio(filename)
-        data = audio.copy()
-        process = self.input_process
+        processes = [(self.input_process, audio.copy())]
         returned_data = {}
 
-        while True:
+        while len(processes) > 0:
+            process, data = processes.pop(0)
+
             results = process.process(np.copy(data))
             classes = results['classes']
 
             if process.log:
                 self.log_results(process, process.log)
 
-            new_process = False
-
             for action in self.get_actions(process, classes):
                 if action.action is None:
                     pass
                 elif action.action == 'next':
-                    if new_process:
-                        raise ValueError("Un process ne peut pas renvoyer dans deux process différents.")
-
-                    new_process, data = self.get_next_process(action, data, classes)
+                    processes.append(self.get_next_process(process, action, data, classes))
                 elif action.action == 'save':
                     filepath = self.save_audio(process, action, filename)
                     returned_data['filepath'] = filepath
@@ -183,11 +181,6 @@ class Processing:
                     returned_data[process.name] = results.copy()
                 else:
                     raise ValueError("Unknown action type '{}'.".format(action.action))
-
-
-            if not new_process:
-                break
-            process = new_process
 
         return returned_data
 

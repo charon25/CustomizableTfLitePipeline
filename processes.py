@@ -57,12 +57,17 @@ class Process:
 
     def __init__(self, process):
         self.name = process.name
+        self.model_outputs = []
         self.results = None
         self.shape = process.config.input_shape
 
         self.interpreter = tflite.Interpreter(model_path=process.model)
         self.input_layer = self.interpreter.get_input_details()[0]['index']
-        self.output_layer = self.interpreter.get_output_details()[0]['index']
+        self.output_layers = []
+        for output_details in self.interpreter.get_output_details():
+            self.output_layers.append(output_details['index'])
+        print(self.name, self.output_layers)
+        # self.output_layer = self.interpreter.get_output_details()[0]['index']
         self.interpreter.resize_tensor_input(self.input_layer, self.shape, strict=True)
         self.interpreter.allocate_tensors()
 
@@ -83,10 +88,14 @@ class Process:
         self.interpreter.set_tensor(self.input_layer, data.astype('float32'))
         self.interpreter.invoke()
 
+        self.model_outputs = {}
+        for index in self.output_layers:
+            self.model_outputs[index] = self.interpreter.get_tensor(index)
+
         if return_input_data:
-            return (data, self.interpreter.get_tensor(self.output_layer))
+            return (data, self.model_outputs[self.output_layers[0]])
         else:
-            return self.interpreter.get_tensor(self.output_layer)
+            return self.model_outputs[self.output_layers[0]]
 
     def _create_on_result_actions(self, process):
         """Create all the "on_result" actions of the process as ActionTriggerCollections."""
@@ -173,6 +182,20 @@ class Process:
             raise ValueError("Incorrect `self.results` format : {}".format(self.results))
 
         self.results['classes'] = list(map(lambda res: str(res).lower(), self.results['classes']))
+
+    def get_result_of_layer(self, index):
+        print(self.name, index, self.output_layers)
+        if index >= len(self.output_layers):
+            raise IndexError('Model only has {} layers, and you tried to access index {}'.format(len(self.output_layers), index))
+
+        layer_index = self.output_layers[index]
+
+        if self.model_outputs is None:
+            raise ValueError('Model outputs have not been computed yet.')
+        if not layer_index in self.model_outputs:
+            raise IndexError("Model has no layer of index {}".format(layer_index))
+        
+        return self.model_outputs[layer_index]
 
 
     @staticmethod

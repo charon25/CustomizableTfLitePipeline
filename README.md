@@ -197,11 +197,12 @@ always:
     - `line` (facultatif) : ligne à logger. Elle peut avoir les valeurs suivantes :
         - [`<CustomString>`](#customstring) ;
         - `'default'` : équivaut à la CustomString `"Process '%n' -> '%r'"`. Cette valeur est utilisée si cet argument est omis.
-- `'next'` : indique le process suivant dans la chaîne. Arguments :
+- `'next'` : indique le process suivant dans la chaîne. Si plusieurs actions `'next'` sont déclenchées, tous les process seront visités, dans l'ordre d'un [parcours en largeur](https://fr.wikipedia.org/wiki/Algorithme_de_parcours_en_largeur). Arguments :
     - `target` (obligatoire) : nom du process suivant ;
     - `input` (obligatoire) : indique quelles données doivent être envoyées au process suivant. Les valeurs possibles sont :
         - `'same'` : les données envoyées sont les mêmes que celles reçues ;
-        - `'result'` : les données reçues sont le résultat du process en cours.
+        - `'result'` : les données reçues sont le résultat du process en cours ;
+        - `un entier` : pour les modèles avec plusieurs couches de sorties, l'indice de la couche dont les résultats doivent servir d'entrée au prochain process.
 - `'output'` : ajoute les résultats de ce process aux données renvoyées. Pas d'arguments supplémentaires.
 
 #### Exemple d'actions
